@@ -63,7 +63,6 @@ public class RandomFile {
 
   private static String sorted(Map<String, Integer> tags) {
     String sortedTags = tags.entrySet().stream()
-//        .sorted((a,b) -> Integer.compare(b.getValue(), a.getValue())) // reverse sort
       .sorted(Comparator.comparing(Entry::getValue))
       .map(Entry::getKey)
       .collect(Collectors.joining(" "));
