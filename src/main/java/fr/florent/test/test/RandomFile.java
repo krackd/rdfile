@@ -5,15 +5,15 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Scanner;
-import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -26,17 +26,16 @@ public class RandomFile {
     try (Scanner scanner = new Scanner(System.in)) {
       Path src = Paths.get(args[0]);
       
-      Map<String, Integer> tags = new HashMap<>();
-      Set<Path> played = new HashSet<>();
+      ArrayList<Path> paths = videoStream(src).collect(Collectors.toCollection(() -> new ArrayList<>()));
       
-      fillTags(src, tags);
+      printTags(paths);
       
-      String sortedTags = sorted(tags);
-      System.out.println(sortedTags);
+      int nb = Integer.valueOf(args[1]);
+      nb = paths.size() < nb ? paths.size() : nb;
       
-      while (true) {
+      while (!paths.isEmpty()) {
         String[] filters = askFilter(scanner);
-        openVideos(args, src, played, filters);
+        openVideos(paths, filters, nb);
       }
       
     } catch (Exception e) {
@@ -44,19 +43,16 @@ public class RandomFile {
     }
   }
 
-  private static void openVideos(String[] args, Path src, Set<Path> played, String[] filters) throws IOException {
-    Path[] paths = videoStream(src)
-      .filter(f -> matchFilters(filters, f))
-      .toArray(s -> new Path[s]);
-    
-//      System.out.println("Count: " + paths.length);
-//      Arrays.stream(paths).forEach(System.out::println);
-    
-    int nb = Integer.valueOf(args[1]);
-    nb = paths.length < nb ? paths.length : nb;
-    
+  private static void printTags(ArrayList<Path> paths) throws IOException {
+    Map<String, Integer> tags = new HashMap<>();
+    fillTags(paths, tags);
+    System.out.println(sorted(tags));
+  }
+
+  private static void openVideos(ArrayList<Path> paths, String[] filters, int nb) throws IOException {
+    ArrayList<Path> filtered = paths.stream().filter(f -> matchFilters(filters, f)).collect(Collectors.toCollection(() -> new ArrayList<>()));
     for (int i = 0; i < nb; i++) {
-      openRandom(paths, played);
+      openRandom(paths, filtered);
     }
   }
 
@@ -75,8 +71,8 @@ public class RandomFile {
     return sortedTags;
   }
 
-  private static void fillTags(Path src, Map<String, Integer> tags) throws IOException {
-    videoStream(src)
+  private static void fillTags(Collection<Path> paths, Map<String, Integer> tags) throws IOException {
+    paths.stream()
       .map(f -> f.getParent().getFileName().toString().toLowerCase() + " " + f.getFileName().toString().toLowerCase())
       .map(n -> FilenameUtils.getBaseName(n))
       .map(n -> n.replaceAll("[-_\\(\\)\\[\\]\\.\\d{2,}]", " "))
@@ -113,26 +109,17 @@ public class RandomFile {
       return scanner.nextLine();
   }
 
-  private static void openRandom(Path[] paths, Set<Path> alreadyPicked) throws IOException {
-    // TODO manage all movies in a set
-    // and remove played movies from the set
-//    if (paths.length <= alreadyPicked.size()) {
-//      return;
-//    }
-    
-    Random rand = new Random();
-    Path path = null;
-    while (path == null) {
-      int i = rand.nextInt(paths.length);
-      Path candidate = paths[i];
-      if (!alreadyPicked.contains(candidate)) {
-        path = candidate;
-      }
+  private static void openRandom(ArrayList<Path> paths, ArrayList<Path> filtered) throws IOException {
+    if (filtered.isEmpty()) {
+      return;
     }
     
-//    System.out.println(path.getFileName());
+    Random rand = new Random();
+    int i = rand.nextInt(filtered.size());
+    Path path = filtered.get(i);
+    
     Desktop.getDesktop().open(path.toFile());
-    alreadyPicked.add(path);
+    paths.remove(path);
   }
   
   public static boolean isVideo(Path p) {
