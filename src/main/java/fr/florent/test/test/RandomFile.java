@@ -119,7 +119,7 @@ public class RandomFile {
     
     Desktop.getDesktop().open(path.toFile());
     paths.remove(path);
-    filtered.remove(i);
+    filtered.remove(path);
   }
   
   public static boolean isVideo(Path p) {
