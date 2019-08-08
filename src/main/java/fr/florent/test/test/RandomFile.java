@@ -25,22 +25,39 @@ public class RandomFile {
   public static void main(String[] args) {
     try (Scanner scanner = new Scanner(System.in)) {
       Path src = Paths.get(args[0]);
+      Path trash = args.length > 2 ? Paths.get(args[2]) : null;
+      Mode mode = args.length > 3 ? Mode.fromValue(args[3]) : Mode.PLAY;
       
       ArrayList<Path> paths = videoStream(src).collect(Collectors.toCollection(() -> new ArrayList<>()));
       
       printTags(paths);
       
-      int nb = Integer.valueOf(args[1]);
-      nb = paths.size() < nb ? paths.size() : nb;
+      int nb = extractPlayNumber(args, mode, paths);
       
       while (!paths.isEmpty()) {
         String[] filters = askFilter(scanner);
-        openVideos(paths, filters, nb);
+        
+        switch (mode) {
+        case DELETE:
+          deleteVideos(paths, filters, nb, trash, scanner);
+          break;
+        
+        default:
+        case PLAY:
+          openVideos(paths, filters, nb);
+          break;
+        }
       }
       
     } catch (Exception e) {
       e.printStackTrace();
     }
+  }
+
+  private static int extractPlayNumber(String[] args, Mode mode, ArrayList<Path> paths) {
+    int nb = Integer.valueOf(args[1]);
+    nb = paths.size() < nb ? paths.size() : nb;
+    return nb;
   }
 
   private static void printTags(ArrayList<Path> paths) throws IOException {
@@ -54,6 +71,24 @@ public class RandomFile {
     for (int i = 0; i < nb; i++) {
       openRandom(paths, filtered);
     }
+  }
+  
+  private static void deleteVideos(ArrayList<Path> paths, String[] filters, int nb, Path trash, Scanner scanner) throws IOException {
+    ArrayList<Path> filtered = paths.stream().filter(f -> matchFilters(filters, f)).collect(Collectors.toCollection(() -> new ArrayList<>()));
+    for (int i = 0; i < nb; i++) {
+      Path path = openRandom(paths, filtered);
+      if (path != null && askDelete(scanner)) {
+        Path destination = Paths.get(trash.toAbsolutePath().toString(), path.getFileName().toString());
+        Files.move(path, destination);
+      }
+    }
+  }
+
+  private static boolean askDelete(Scanner scanner) {
+    System.out.print("delete (Y/n)? ");
+    String response = scanner.nextLine();
+    boolean delete = "Y".equals(response);
+    return delete;
   }
 
   private static String[] askFilter(Scanner scanner) {
@@ -108,9 +143,9 @@ public class RandomFile {
       return scanner.nextLine();
   }
 
-  private static void openRandom(ArrayList<Path> paths, ArrayList<Path> filtered) throws IOException {
+  private static Path openRandom(ArrayList<Path> paths, ArrayList<Path> filtered) throws IOException {
     if (filtered.isEmpty()) {
-      return;
+      return null;
     }
     
     Random rand = new Random();
@@ -120,6 +155,8 @@ public class RandomFile {
     Desktop.getDesktop().open(path.toFile());
     paths.remove(path);
     filtered.remove(path);
+    
+    return path;
   }
   
   public static boolean isVideo(Path p) {
